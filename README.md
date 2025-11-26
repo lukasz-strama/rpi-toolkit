@@ -129,6 +129,38 @@ rpi_gpio.h
 pin_mode(pin, mode), digital_write(pin, val), digital_read(pin).
 ```
 
-### License
+---
+
+## GPIO Pinout Reference (BCM vs Physical)
+
+Your code uses **BCM** numbers (Green column).
+
+| BCM (Code) | Role        | Phy |   | Phy | Role        | BCM (Code) |
+| :---:      | :---        | :---: |---| :---: | :---        | :---:      |
+| **-** | **3.3V** |  1  | . |  2  | **5V** | **-** |
+| **2** | SDA (I2C)   |  3  | . |  4  | **5V** | **-** |
+| **3** | SCL (I2C)   |  5  | . |  6  | **GND** | **-** |
+| **4** | GPCLK0      |  7  | . |  8  | TXD (UART)  | **14** |
+| **-** | **GND** |  9  | . | 10  | RXD (UART)  | **15** |
+| **17** | GPIO        | 11  | . | 12  | PWM0 / GPIO | **18** |
+| **27** | GPIO        | 13  | . | 14  | **GND** | **-** |
+| **22** | GPIO        | 15  | . | 16  | GPIO        | **23** |
+| **-** | **3.3V** | 17  | . | 18  | GPIO        | **24** |
+| **10** | MOSI (SPI)  | 19  | . | 20  | **GND** | **-** |
+| **9** | MISO (SPI)  | 21  | . | 22  | GPIO        | **25** |
+| **11** | SCLK (SPI)  | 23  | . | 24  | CE0 (SPI)   | **8** |
+| **-** | **GND** | 25  | . | 26  | CE1 (SPI)   | **7** |
+| **0** | ID_SD       | 27  | . | 28  | ID_SC       | **1** |
+| **5** | GPIO        | 29  | . | 30  | **GND** | **-** |
+| **6** | GPIO        | 31  | . | 32  | PWM0 / GPIO | **12** |
+| **13** | PWM1 / GPIO | 33  | . | 34  | **GND** | **-** |
+| **19** | PWM1 / MISO | 35  | . | 36  | GPIO        | **16** |
+| **26** | GPIO        | 37  | . | 38  | MOSI / GPIO | **20** |
+| **-** | **GND** | 39  | . | 40  | SCLK / GPIO | **21** |
+
+* **BCM:** The number you use in `pin_mode(X, ...)` and `digital_write(X, ...)`.
+* **Phy:** The physical pin number on the board header (1-40).
+
+## License
 
 MIT License - Feel free to use this in your university projects.
