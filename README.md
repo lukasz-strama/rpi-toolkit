@@ -1,27 +1,20 @@
 # rpi-toolkit
 
-**rpi-toolkit** is a collection of portable, single-header C libraries designed for embedded systems labs on the Raspberry Pi 4B.
+**rpi-toolkit** is a collection of portable, single-header C libraries designed for embedded systems on the Raspberry Pi 4B.
 
-## Modules
+## 📂 Modules
 
 | File | Description | Features |
 | :--- | :--- | :--- |
 | **`rpi_gpio.h`** | Hardware Abstraction Layer | Direct register access (MMIO), auto-mocking on PC, no root required (`/dev/gpiomem`). |
-| **`simple_timer.h`** | Non-blocking Timing | `CLOCK_MONOTONIC` based, drift-free periodic execution, replaces `sleep()`. |
+| **`simple_timer.h`** | Timing & Delays | `CLOCK_MONOTONIC` based, drift-free periodic execution, plus microsecond precision for sensors. |
+| **`rpi_pwm.h`** | Software PWM | Multi-threaded PWM generation on any GPIO pin. Replaces `softPwm` from WiringPi. |
 
------
+---
 
 ## Quick Start
 
-This example demonstrates the power of this toolkit: **Multitasking in a single thread.**
-The LED blinks every 500ms, but the "Sensor" is read every 100ms. No threads, no blocking.
-
-```bash
-wget https://raw.githubusercontent.com/lukasz-strama/rpi-toolkit/main/rpi_gpio.h
-wget https://raw.githubusercontent.com/lukasz-strama/rpi-toolkit/main/simple_timer.h
-```
-
-### `main.c`
+This example demonstrates multitasking: blinking an LED, reading sensors, and pulsing a PWM pin simultaneously.
 
 ```c
 #include <stdio.h>
@@ -34,115 +27,80 @@ wget https://raw.githubusercontent.com/lukasz-strama/rpi-toolkit/main/simple_tim
 #define SIMPLE_TIMER_IMPLEMENTATION
 #include "simple_timer.h"
 
-// Constants
-#define LED_PIN 18
-#define BLINK_INTERVAL 500
-#define SENSOR_INTERVAL 100
+#define RPI_PWM_IMPLEMENTATION
+#include "rpi_pwm.h"
 
 int main() {
-    // --- Setup ---
-    if (gpio_init() != 0) {
-        return 1;
-    }
-    
-    pin_mode(LED_PIN, OUTPUT);
-    
-    // Timer instances
-    simple_timer_t led_timer;
-    simple_timer_t sensor_timer;
-    
-    // Start timers
-    timer_set(&led_timer, BLINK_INTERVAL);
-    timer_set(&sensor_timer, SENSOR_INTERVAL);
+    // Setup
+    gpio_init();
+    pwm_init(18); // Start PWM on Pin 18 (e.g., LED or Servo)
 
-    int led_state = LOW;
     printf("System started. Press Ctrl+C to exit.\n");
 
-    // --- Super Loop ---
     while (1) {
-        
-        // Task 1: Blink LED (Low Priority)
-        if (timer_expired(&led_timer)) {
-            led_state = !led_state;
-            digital_write(LED_PIN, led_state);
-            printf("[TASK 1] LED toggled to %d\n", led_state);
-            
-            // Restart timer for next cycle
-            timer_set(&led_timer, BLINK_INTERVAL); 
+        // Fade LED logic using PWM
+        for (int i = 0; i <= 100; i += 5) {
+            pwm_write(18, i);
+            delay_us(50000); // Wait 50ms (using busy-wait for precision)
         }
-
-        // Task 2: Read "Sensors" (High Priority)
-        if (timer_expired(&sensor_timer)) {
-            // Simulate reading a button or sensor
-            // int val = digital_read(BUTTON_PIN);
-            printf("   [TASK 2] Scanning sensors...\n");
-            
-            timer_set(&sensor_timer, SENSOR_INTERVAL);
+        for (int i = 100; i >= 0; i -= 5) {
+            pwm_write(18, i);
+            delay_us(50000);
         }
-
-        // CPU Idle (prevent 100% CPU usage in simple loops)
-        usleep(100); 
     }
 
+    pwm_stop(18);
     gpio_cleanup();
     return 0;
 }
 ```
 
------
-
 ## Compilation
 
-You can compile this identically on your Host PC and the Target RPi.
+Since rpi_pwm.h uses threads, you must link with the pthread library.
 
-**1. On x86_64 Host PC (Simulation Mode):**
-
-```bash
-gcc main.c -o app
+### 1. On x86_64 (Simulation Mode):
+```Bash
+gcc main.c -o app -pthread
 ./app
 ```
-
-*Output:*
-
-```text
+Output:
+```Plaintext
 MOCK: gpio_init() called...
-System started.
-   [TASK 2] Scanning sensors...
-   [TASK 2] Scanning sensors...
-   [TASK 2] Scanning sensors...
-   [TASK 2] Scanning sensors...
-   [TASK 2] Scanning sensors...
-[TASK 1] LED toggled to 1
-MOCK: Pin 18 set to HIGH
+MOCK: PWM initialized on Pin 18
+MOCK: PWM on Pin 18 updated to 5%
+...
 ```
 
-**2. On Raspberry Pi (Hardware Mode):**
-
-```bash
-gcc main.c -o app
+### 2. On Raspberry Pi (Hardware Mode):
+```Bash
+gcc main.c -o app -pthread
 ./app
 ```
 
-*Output:* The physical LED will blink at 1Hz, while the console prints sensor logs at 10Hz.
+## API Reference
 
------
+simple_timer.h
 
-## Documentation
+    timer_set(&t, ms): Start/Reset a timer.
 
-### `rpi_gpio.h`
+    timer_tick(&t): Returns true if expired and automatically advances the timer (drift-free).
 
-  * **Init:** `gpio_init()`, `gpio_cleanup()`
-  * **Control:** `pin_mode(pin, mode)`, `digital_write(pin, val)`, `digital_read(pin)`
-  * **Note:** Uses `/dev/gpiomem`. Ensure your user is in the `gpio` group.
+    micros(): Returns uptime in microseconds.
 
-### `simple_timer.h`
+    delay_us(us): precise delay (busy-wait) for timing-critical protocols.
 
-  * **Types:** `simple_timer_t`
-  * **Control:** `timer_set(&t, ms)`, `timer_expired(&t)`
-  * **Utils:** `millis()`
-  * **Note:** Uses `CLOCK_MONOTONIC` to prevent issues when the system clock updates via NTP/WiFi.
+rpi_pwm.h
 
------
+    pwm_init(pin): Starts a background thread for PWM on selected pin.
+
+    pwm_write(pin, duty): Sets duty cycle (0-100).
+
+    pwm_stop(pin): Stops the thread and cleans up.
+
+rpi_gpio.h
+
+    pin_mode(pin, mode), digital_write(pin, val), digital_read(pin).
 
 ## License
 
