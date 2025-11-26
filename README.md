@@ -139,6 +139,6 @@ gcc main.c -o app
 
 -----
 
-## ⚖️ License
+## License
 
 MIT License - Feel free to use this in your university projects.
