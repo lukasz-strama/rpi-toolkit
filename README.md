@@ -1,14 +1,16 @@
 # rpi-toolkit
 
-**rpi-toolkit** is a collection of portable, single-header C libraries designed for embedded systems on the Raspberry Pi 4B.
+**rpi-toolkit** is a collection of portable, single-header C libraries designed for embedded systems on the Raspberry Pi 4B. 
+It includes a Python wrapper for scripting.
 
-## 📂 Modules
+## Modules
 
 | File | Description | Features |
 | :--- | :--- | :--- |
 | **`rpi_gpio.h`** | Hardware Abstraction Layer | Direct register access (MMIO), auto-mocking on PC, no root required (`/dev/gpiomem`). |
 | **`simple_timer.h`** | Timing & Delays | `CLOCK_MONOTONIC` based, drift-free periodic execution, plus microsecond precision for sensors. |
 | **`rpi_pwm.h`** | Software PWM | Multi-threaded PWM generation on any GPIO pin. Replaces `softPwm` from WiringPi. |
+| **`rpi_toolkit.py`**| Python Wrapper | `ctypes` binding to use all above C libraries directly in Python. |
 
 ---
 
@@ -57,14 +59,16 @@ int main() {
 
 ## Compilation
 
-Since rpi_pwm.h uses threads, you must link with the pthread library.
+Since `rpi_pwm.h` uses threads, you must link with the `pthread` library.
 
 ### 1. On x86_64 (Simulation Mode):
+
 ```Bash
 gcc main.c -o app -pthread
 ./app
 ```
 Output:
+
 ```Plaintext
 MOCK: gpio_init() called...
 MOCK: PWM initialized on Pin 18
@@ -73,35 +77,58 @@ MOCK: PWM on Pin 18 updated to 5%
 ```
 
 ### 2. On Raspberry Pi (Hardware Mode):
+
 ```Bash
 gcc main.c -o app -pthread
 ./app
+```
+
+## Python Support
+
+You can use these libraries in Python thanks to the included `ctypes` wrapper. This gives you the syntax of Python with the performance of C (PWM runs in a background C thread).
+
+### Build the Shared Library
+
+```Bash
+make
+```
+
+### Run the test Python Script
+
+```Bash
+python3 main.py
 ```
 
 ## API Reference
 
 simple_timer.h
 
-    timer_set(&t, ms): Start/Reset a timer.
+```
+timer_set(&t, ms): Start/Reset a timer.
 
-    timer_tick(&t): Returns true if expired and automatically advances the timer (drift-free).
+timer_tick(&t): Returns true if expired and automatically advances the timer (drift-free).
 
-    micros(): Returns uptime in microseconds.
+micros(): Returns uptime in microseconds.
 
-    delay_us(us): precise delay (busy-wait) for timing-critical protocols.
+delay_us(us): precise delay (busy-wait) for timing-critical protocols.
+```
 
 rpi_pwm.h
 
-    pwm_init(pin): Starts a background thread for PWM on selected pin.
+```
+pwm_init(pin): Starts a background thread for PWM on selected pin.
 
-    pwm_write(pin, duty): Sets duty cycle (0-100).
+pwm_write(pin, duty): Sets duty cycle (0-100).
 
-    pwm_stop(pin): Stops the thread and cleans up.
+pwm_stop(pin): Stops the thread and cleans up.
+```
 
 rpi_gpio.h
 
-    pin_mode(pin, mode), digital_write(pin, val), digital_read(pin).
+```
+pin_mode(pin, mode), digital_write(pin, val), digital_read(pin).
+```
 
-## License
+### License
 
 MIT License - Feel free to use this in your university projects.
