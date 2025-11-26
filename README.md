@@ -1,6 +1,6 @@
-# rpi-lab-toolkit
+# rpi-toolkit
 
-**rpi-lab-toolkit** is a collection of portable, single-header C libraries designed for embedded systems labs on the Raspberry Pi 4B.
+**rpi-toolkit** is a collection of portable, single-header C libraries designed for embedded systems labs on the Raspberry Pi 4B.
 
 ## Modules
 
