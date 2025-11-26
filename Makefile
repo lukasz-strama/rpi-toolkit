@@ -6,10 +6,10 @@ LIB_TARGET = libtoolkit.so
 
 all: $(TARGET) $(LIB_TARGET)
 
-$(TARGET): main.c rpi_gpio.h simple_timer.h rpi_pwm.h
+$(TARGET): main.c rpi_gpio.h simple_timer.h rpi_pwm.h rpi_hw_pwm.h
 	$(CC) $(CFLAGS) -o $(TARGET) main.c
 
-$(LIB_TARGET): lib_toolkit.c rpi_gpio.h simple_timer.h rpi_pwm.h
+$(LIB_TARGET): lib_toolkit.c rpi_gpio.h simple_timer.h rpi_pwm.h rpi_hw_pwm.h
 	$(CC) $(CFLAGS) -shared -fPIC -o $(LIB_TARGET) lib_toolkit.c
 
 clean:

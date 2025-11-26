@@ -23,12 +23,20 @@ extern "C" {
 int gpio_init(void);
 void gpio_cleanup(void);
 void pin_mode(int pin, int mode);
+void gpio_set_function(int pin, int function);
 void digital_write(int pin, int value);
 int digital_read(int pin);
 
 // Constants
 #define INPUT 0
 #define OUTPUT 1
+#define ALT0 4
+#define ALT1 5
+#define ALT2 6
+#define ALT3 7
+#define ALT4 3
+#define ALT5 2
+
 #define LOW 0
 #define HIGH 1
 
@@ -134,6 +142,24 @@ void pin_mode(int pin, int mode) {
         val |= (0b001 << bit_offset); // Set to Output (001)
     }
     // Input is 000, so we just leave it cleared
+    *fsel_reg = val;
+#endif
+}
+
+void gpio_set_function(int pin, int function) {
+#ifdef RPI_GPIO_PLATFORM_HOST
+    printf("MOCK: Pin %d set to Function %d\n", pin, function);
+#else
+    if (!gpio_map) return;
+
+    int reg_index = pin / 10;
+    int bit_offset = (pin % 10) * 3;
+
+    volatile uint32_t* fsel_reg = gpio_map + reg_index;
+    
+    uint32_t val = *fsel_reg;
+    val &= ~(0b111 << bit_offset); // Clear 3 bits
+    val |= (function << bit_offset); // Set function
     *fsel_reg = val;
 #endif
 }

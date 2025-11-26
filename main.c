@@ -4,6 +4,8 @@
 #include "simple_timer.h"
 #define RPI_PWM_IMPLEMENTATION
 #include "rpi_pwm.h"
+#define RPI_HW_PWM_IMPLEMENTATION
+#include "rpi_hw_pwm.h"
 #include <unistd.h>
 #include <stdio.h>
 
@@ -15,15 +17,24 @@ int main() {
 
     int led_pin = 21;
     int pwm_pin = 18;
+    int hw_pwm_pin = 12;
 
     printf("Starting Non-Blocking GPIO Blink on Pin %d...\n", led_pin);
-    printf("Starting PWM on Pin %d...\n", pwm_pin);
+    printf("Starting Software PWM on Pin %d...\n", pwm_pin);
+    printf("Starting Hardware PWM on Pin %d...\n", hw_pwm_pin);
     
     pin_mode(led_pin, OUTPUT);
     
     if (pwm_init(pwm_pin) != 0) {
         fprintf(stderr, "Failed to init PWM\n");
     }
+
+    if (hpwm_init() != 0) {
+        fprintf(stderr, "Failed to init HW PWM\n");
+    }
+
+    // Set HW PWM to 50Hz (Servo), 7.5% duty (Neutral)
+    hpwm_set(hw_pwm_pin, 50, 75);
 
     simple_timer_t blink_timer;
     simple_timer_t sensor_timer;
@@ -57,6 +68,9 @@ int main() {
                 pwm_duty = 0;
             }
             pwm_write(pwm_pin, pwm_duty);
+            
+            // Update HW PWM as well (just for demo)
+            hpwm_set(hw_pwm_pin, 50, pwm_duty * 10); // Scale 0-100 to 0-1000
         }
 
         // minimal sleep to prevent CPU hogging
@@ -64,6 +78,7 @@ int main() {
     }
 
     pwm_stop(pwm_pin);
+    hpwm_stop();
     gpio_cleanup();
     printf("Done.\n");
     return 0;
