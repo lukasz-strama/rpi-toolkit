@@ -2,6 +2,8 @@
 #include "rpi_gpio.h"
 #define SIMPLE_TIMER_IMPLEMENTATION
 #include "simple_timer.h"
+#define RPI_PWM_IMPLEMENTATION
+#include "rpi_pwm.h"
 #include <unistd.h>
 #include <stdio.h>
 
@@ -12,17 +14,28 @@ int main() {
     }
 
     int led_pin = 21;
+    int pwm_pin = 18;
+
     printf("Starting Non-Blocking GPIO Blink on Pin %d...\n", led_pin);
+    printf("Starting PWM on Pin %d...\n", pwm_pin);
     
     pin_mode(led_pin, OUTPUT);
+    
+    if (pwm_init(pwm_pin) != 0) {
+        fprintf(stderr, "Failed to init PWM\n");
+    }
 
     simple_timer_t blink_timer;
     simple_timer_t sensor_timer;
+    simple_timer_t pwm_timer;
 
     timer_set(&blink_timer, 500);
     timer_set(&sensor_timer, 100);
+    timer_set(&pwm_timer, 1000); // Change PWM every second
 
     int led_state = LOW;
+    int pwm_duty = 0;
+    int pwm_step = 25;
 
     // Run for 5 seconds
     uint64_t start_time = millis();
@@ -35,13 +48,22 @@ int main() {
         }
 
         if (timer_tick(&sensor_timer)) {
-            printf("Checking sensors...\n");
+            // printf("Checking sensors...\n"); // Commented out to reduce spam
+        }
+
+        if (timer_tick(&pwm_timer)) {
+            pwm_duty += pwm_step;
+            if (pwm_duty > 100) {
+                pwm_duty = 0;
+            }
+            pwm_write(pwm_pin, pwm_duty);
         }
 
         // minimal sleep to prevent CPU hogging
         usleep(1000); 
     }
 
+    pwm_stop(pwm_pin);
     gpio_cleanup();
     printf("Done.\n");
     return 0;
