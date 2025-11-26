@@ -1,4 +1,4 @@
-# rpi\_gpio.h - Lightweight GPIO Library for Raspberry Pi 4B
+# Lightweight GPIO Library for Raspberry Pi 4B
 
 **rpi\_gpio** is a portable, single-header C library designed for low-level GPIO control on the Raspberry Pi 4B. It features a **dual-mode architecture**:
 
