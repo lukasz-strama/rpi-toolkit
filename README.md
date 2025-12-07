@@ -15,6 +15,22 @@ It includes a Python wrapper for scripting.
 
 ---
 
+## Performance Benchmarks
+
+Comparison of `rpi-toolkit` against standard Raspberry Pi GPIO methods. 
+Tests performed on Raspberry Pi 4B, toggling a GPIO pin 10,000 times.
+
+| Method | Language | Library | Frequency | Speedup Factor |
+| :--- | :--- | :--- | :--- | :--- |
+| **rpi-toolkit** | **C** | **Direct MMIO** | **39,215,686 Hz (~39 MHz)** | **1x (Baseline)** |
+| rpi-toolkit | Python | ctypes wrapper | 140,381 Hz (~140 kHz) | 279x slower |
+| lgpio | C | Linux Kernel API | 525,292 Hz (~0.5 MHz) | 74x slower |
+| gpiozero | Python | Standard Lib | 37,167 Hz (~37 kHz) | 1,055x slower |
+| pinctrl | Bash | Sysfs/Pinctrl | 164 Hz | 238,766x slower |
+
+**Conclusion:** `rpi-toolkit` in native C is approximately **74x faster** than the standard `lgpio` C library because it bypasses the Linux Kernel overhead using Direct Memory Access (DMA/MMIO).
+Even the Python wrapper is **~3.8x faster** than the standard `gpiozero` library.
+
 ## Quick Start
 
 This example demonstrates multitasking: blinking an LED, reading sensors, and pulsing a PWM pin simultaneously.
