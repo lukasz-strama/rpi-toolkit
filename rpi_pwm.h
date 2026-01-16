@@ -25,6 +25,7 @@ extern "C" {
 
 // API Declarations
 int pwm_init(int pin);
+int pwm_init_freq(int pin, int freq_hz);
 void pwm_write(int pin, int duty);
 void pwm_stop(int pin);
 
@@ -52,10 +53,12 @@ void pwm_stop(int pin);
     #include <stdbool.h>
 
     #define MAX_PWM_PINS 8
+    #define PWM_DEFAULT_FREQ_HZ 100  // Default 100 Hz (10ms period)
 
     typedef struct {
         int pin;
         volatile int duty;
+        volatile int period_us;  // PWM period in microseconds
         volatile bool running;
         pthread_t thread;
         bool active;
@@ -69,17 +72,17 @@ void pwm_stop(int pin);
         
         while (p->running) {
             int d = p->duty;
+            int period = p->period_us;
             
             if (d <= 0) {
                 digital_write(p->pin, LOW);
-                usleep(10000); // 10ms wait
+                usleep(period);
             } else if (d >= 100) {
                 digital_write(p->pin, HIGH);
-                usleep(10000); // 10ms wait
+                usleep(period);
             } else {
-                // Period is 10ms = 10000us
-                int on_time = d * 100;
-                int off_time = 10000 - on_time;
+                int on_time = (period * d) / 100;
+                int off_time = period - on_time;
 
                 digital_write(p->pin, HIGH);
                 usleep(on_time);
@@ -91,11 +94,13 @@ void pwm_stop(int pin);
     }
 #endif
 
-int pwm_init(int pin) {
+int pwm_init_freq(int pin, int freq_hz) {
 #ifdef RPI_PWM_PLATFORM_HOST
-    printf("MOCK: PWM initialized on Pin %d\n", pin);
+    printf("MOCK: PWM initialized on Pin %d at %d Hz\n", pin, freq_hz);
     return 0;
 #else
+    if (freq_hz <= 0) freq_hz = PWM_DEFAULT_FREQ_HZ;
+    
     pthread_mutex_lock(&pwm_mutex);
     
     // Find free slot
@@ -120,6 +125,7 @@ int pwm_init(int pin) {
     
     pwm_pins[slot].pin = pin;
     pwm_pins[slot].duty = 0;
+    pwm_pins[slot].period_us = 1000000 / freq_hz;  // Convert Hz to period in us
     pwm_pins[slot].running = true;
     pwm_pins[slot].active = true;
 
@@ -133,6 +139,10 @@ int pwm_init(int pin) {
     pthread_mutex_unlock(&pwm_mutex);
     return 0;
 #endif
+}
+
+int pwm_init(int pin) {
+    return pwm_init_freq(pin, PWM_DEFAULT_FREQ_HZ);
 }
 
 void pwm_write(int pin, int duty) {
