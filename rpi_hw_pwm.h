@@ -128,9 +128,10 @@ int hpwm_init(void) {
     // Wait for busy flag
     while (clk_map[CM_PWMCTL] & 0x80) usleep(1);
 
-    // Set Divisor to 19.2 (19.2MHz / 19.2 = 1MHz)
-    // DIVI is integer part (19), DIVF is fractional part (0.2 * 4096 = 819)
-    clk_map[CM_PWMDIV] = CM_PASSWD | (19 << 12) | 819;
+    // Set Divisor for RPi 4B: Oscillator = 54 MHz
+    // To get 1 MHz: 54 MHz / 54 = 1 MHz
+    // DIVI = 54, DIVF = 0
+    clk_map[CM_PWMDIV] = CM_PASSWD | (54 << 12) | 0;
 
     // Enable Clock (Source = Oscillator = 1)
     clk_map[CM_PWMCTL] = CM_PASSWD | 16 | 1; // Enable + Source 1
