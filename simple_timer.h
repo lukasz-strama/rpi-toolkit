@@ -80,7 +80,12 @@ bool timer_expired(simple_timer_t* t) {
 bool timer_tick(simple_timer_t* t) {
     uint64_t now = millis();
     if (now >= t->next_expiry) {
-        t->next_expiry += t->interval;
+        // Skip missed intervals to prevent cascading catch-up ticks
+        // This is important for scientific applications where losing
+        // timing due to system load should not cause burst behavior
+        while (t->next_expiry <= now) {
+            t->next_expiry += t->interval;
+        }
         return true;
     }
     return false;
