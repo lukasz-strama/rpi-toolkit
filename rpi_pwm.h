@@ -62,6 +62,7 @@ void pwm_stop(int pin);
     } pwm_pin_t;
 
     static pwm_pin_t pwm_pins[MAX_PWM_PINS] = {0};
+    static pthread_mutex_t pwm_mutex = PTHREAD_MUTEX_INITIALIZER;
 
     void* pwm_thread_func(void* arg) {
         pwm_pin_t* p = (pwm_pin_t*)arg;
@@ -95,10 +96,13 @@ int pwm_init(int pin) {
     printf("MOCK: PWM initialized on Pin %d\n", pin);
     return 0;
 #else
+    pthread_mutex_lock(&pwm_mutex);
+    
     // Find free slot
     int slot = -1;
     for (int i = 0; i < MAX_PWM_PINS; i++) {
         if (pwm_pins[i].active && pwm_pins[i].pin == pin) {
+            pthread_mutex_unlock(&pwm_mutex);
             return 0; // Already initialized
         }
         if (!pwm_pins[i].active && slot == -1) {
@@ -107,6 +111,7 @@ int pwm_init(int pin) {
     }
 
     if (slot == -1) {
+        pthread_mutex_unlock(&pwm_mutex);
         fprintf(stderr, "PWM Error: Max pins reached\n");
         return -1;
     }
@@ -121,9 +126,11 @@ int pwm_init(int pin) {
     if (pthread_create(&pwm_pins[slot].thread, NULL, pwm_thread_func, &pwm_pins[slot]) != 0) {
         perror("PWM Error: Failed to create thread");
         pwm_pins[slot].active = false;
+        pthread_mutex_unlock(&pwm_mutex);
         return -1;
     }
 
+    pthread_mutex_unlock(&pwm_mutex);
     return 0;
 #endif
 }
@@ -135,12 +142,15 @@ void pwm_write(int pin, int duty) {
 #ifdef RPI_PWM_PLATFORM_HOST
     printf("MOCK: PWM on Pin %d updated to %d%%\n", pin, duty);
 #else
+    pthread_mutex_lock(&pwm_mutex);
     for (int i = 0; i < MAX_PWM_PINS; i++) {
         if (pwm_pins[i].active && pwm_pins[i].pin == pin) {
             pwm_pins[i].duty = duty;
+            pthread_mutex_unlock(&pwm_mutex);
             return;
         }
     }
+    pthread_mutex_unlock(&pwm_mutex);
 #endif
 }
 
@@ -148,15 +158,23 @@ void pwm_stop(int pin) {
 #ifdef RPI_PWM_PLATFORM_HOST
     printf("MOCK: PWM stopped on Pin %d\n", pin);
 #else
+    pthread_mutex_lock(&pwm_mutex);
     for (int i = 0; i < MAX_PWM_PINS; i++) {
         if (pwm_pins[i].active && pwm_pins[i].pin == pin) {
             pwm_pins[i].running = false;
+            pthread_mutex_unlock(&pwm_mutex);
+            
+            // Join outside mutex to avoid deadlock
             pthread_join(pwm_pins[i].thread, NULL);
+            
+            pthread_mutex_lock(&pwm_mutex);
             digital_write(pin, LOW);
             pwm_pins[i].active = false;
+            pthread_mutex_unlock(&pwm_mutex);
             return;
         }
     }
+    pthread_mutex_unlock(&pwm_mutex);
 #endif
 }
 
