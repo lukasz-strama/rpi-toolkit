@@ -47,13 +47,14 @@ void pwm_stop(int pin);
     #define RPI_PWM_PLATFORM_HOST
 #endif
 
+#define PWM_DEFAULT_FREQ_HZ 100  // Default 100 Hz (10ms period)
+
 #ifdef RPI_PWM_PLATFORM_RPI
     #include <pthread.h>
     #include <unistd.h>
     #include <stdbool.h>
 
     #define MAX_PWM_PINS 8
-    #define PWM_DEFAULT_FREQ_HZ 100  // Default 100 Hz (10ms period)
 
     typedef struct {
         int pin;
