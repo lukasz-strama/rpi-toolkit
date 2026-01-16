@@ -40,6 +40,9 @@ int digital_read(int pin);
 #define LOW 0
 #define HIGH 1
 
+#define GPIO_PIN_MIN 0
+#define GPIO_PIN_MAX 53
+
 #ifdef __cplusplus
 }
 #endif
@@ -121,6 +124,7 @@ void gpio_cleanup(void) {
 }
 
 void pin_mode(int pin, int mode) {
+    if (pin < GPIO_PIN_MIN || pin > GPIO_PIN_MAX) return;
 #ifdef RPI_GPIO_PLATFORM_HOST
     printf("MOCK: Pin %d set to %s\n", pin, mode == INPUT ? "INPUT" : "OUTPUT");
 #else
@@ -147,6 +151,7 @@ void pin_mode(int pin, int mode) {
 }
 
 void gpio_set_function(int pin, int function) {
+    if (pin < GPIO_PIN_MIN || pin > GPIO_PIN_MAX) return;
 #ifdef RPI_GPIO_PLATFORM_HOST
     printf("MOCK: Pin %d set to Function %d\n", pin, function);
 #else
@@ -165,6 +170,7 @@ void gpio_set_function(int pin, int function) {
 }
 
 void digital_write(int pin, int value) {
+    if (pin < GPIO_PIN_MIN || pin > GPIO_PIN_MAX) return;
 #ifdef RPI_GPIO_PLATFORM_HOST
     printf("MOCK: Pin %d set to %s\n", pin, value == HIGH ? "HIGH" : "LOW");
 #else
@@ -189,6 +195,7 @@ void digital_write(int pin, int value) {
 }
 
 int digital_read(int pin) {
+    if (pin < GPIO_PIN_MIN || pin > GPIO_PIN_MAX) return LOW;
 #ifdef RPI_GPIO_PLATFORM_HOST
     printf("MOCK: Reading Pin %d (returning LOW)\n", pin);
     return LOW;
