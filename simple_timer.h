@@ -8,8 +8,11 @@
  *   ...
  *   simple_timer_t t;
  *   timer_set(&t, 1000);
- *   if (timer_expired(&t)) { ... }
+ *   if (timer_tick(&t)) { ... }  // Auto-advances timer on expiry
  *   ...
+ *
+ * Note: timer_expired() only checks if expired, does NOT advance the timer.
+ *       Use timer_tick() for periodic events.
  */
 
 #ifndef SIMPLE_TIMER_H
@@ -29,11 +32,12 @@ typedef struct {
 
 // API Declarations
 void timer_set(simple_timer_t* t, uint64_t interval_ms);
-bool timer_expired(simple_timer_t* t);
-bool timer_tick(simple_timer_t* t);
+bool timer_expired(simple_timer_t* t);  // Check only, does NOT reset
+bool timer_tick(simple_timer_t* t);     // Check and auto-advance timer
 uint64_t millis(void);
 uint64_t micros(void);
-void delay_us(uint64_t us);
+void delay_ms(uint64_t ms);  // Busy-wait delay in milliseconds
+void delay_us(uint64_t us);  // Busy-wait delay in microseconds
 
 #ifdef __cplusplus
 }
@@ -55,6 +59,13 @@ uint64_t micros(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)(ts.tv_sec * 1000000) + (uint64_t)(ts.tv_nsec / 1000);
+}
+
+void delay_ms(uint64_t ms) {
+    uint64_t start = millis();
+    while (millis() - start < ms) {
+        // Busy wait
+    }
 }
 
 void delay_us(uint64_t us) {
