@@ -152,14 +152,30 @@ void hpwm_set(int pin, int freq_hz, int duty_per_mille) {
 #else
     if (!pwm_map || !clk_map) return;
 
-    // Set Pin to ALT5 (PWM)
-    gpio_set_function(pin, ALT5);
-
-    // Determine Channel
-    // PWM0: 12, 18
-    // PWM1: 13, 19
+    // Determine Channel and ALT function
+    // PWM0: Pin 12 (ALT0), Pin 18 (ALT5)
+    // PWM1: Pin 13 (ALT0), Pin 19 (ALT5)
     int channel = 0;
-    if (pin == 13 || pin == 19) channel = 1;
+    int alt_func = ALT5;
+
+    if (pin == 12) {
+        channel = 0;
+        alt_func = ALT0;
+    } else if (pin == 13) {
+        channel = 1;
+        alt_func = ALT0;
+    } else if (pin == 18) {
+        channel = 0;
+        alt_func = ALT5;
+    } else if (pin == 19) {
+        channel = 1;
+        alt_func = ALT5;
+    } else {
+        // Unsupported PWM pin
+        return;
+    }
+
+    gpio_set_function(pin, alt_func);
 
     // Calculate Range and Data
     // Clock is 1MHz.
