@@ -72,6 +72,15 @@ int digital_read(int pin);
 
     #define BLOCK_SIZE (4*1024)
 
+    // GPIO Register Offsets (in 32-bit words from gpio_map base)
+    // See BCM2711 ARM Peripherals datasheet for reference
+    #define GPSET0  7   // GPIO Pin Output Set 0 (0x1C / 4)
+    #define GPSET1  8   // GPIO Pin Output Set 1 (0x20 / 4)
+    #define GPCLR0  10  // GPIO Pin Output Clear 0 (0x28 / 4)
+    #define GPCLR1  11  // GPIO Pin Output Clear 1 (0x2C / 4)
+    #define GPLEV0  13  // GPIO Pin Level 0 (0x34 / 4)
+    #define GPLEV1  14  // GPIO Pin Level 1 (0x38 / 4)
+
     // Global variables for GPIO access
     static volatile uint32_t *gpio_map = NULL;
     static int mem_fd = -1;
@@ -183,12 +192,10 @@ void digital_write(int pin, int value) {
     int shift = (pin < 32) ? pin : (pin - 32);
 
     if (value == HIGH) {
-        // GPSET0 is at offset 0x1C. 0x1C / 4 = 7.
-        volatile uint32_t* set_reg = gpio_map + 7 + reg_offset;
+        volatile uint32_t* set_reg = gpio_map + GPSET0 + reg_offset;
         *set_reg = (1 << shift);
     } else {
-        // GPCLR0 is at offset 0x28. 0x28 / 4 = 10.
-        volatile uint32_t* clr_reg = gpio_map + 10 + reg_offset;
+        volatile uint32_t* clr_reg = gpio_map + GPCLR0 + reg_offset;
         *clr_reg = (1 << shift);
     }
 #endif
@@ -202,11 +209,10 @@ int digital_read(int pin) {
 #else
     if (!gpio_map) return LOW;
 
-    // GPLEV0 is at offset 0x34. 0x34 / 4 = 13.
     int reg_offset = (pin < 32) ? 0 : 1;
     int shift = (pin < 32) ? pin : (pin - 32);
     
-    volatile uint32_t* lev_reg = gpio_map + 13 + reg_offset;
+    volatile uint32_t* lev_reg = gpio_map + GPLEV0 + reg_offset;
     return (*lev_reg & (1 << shift)) ? HIGH : LOW;
 #endif
 }
