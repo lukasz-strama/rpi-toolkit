@@ -141,6 +141,11 @@ int hpwm_init(void) {
 }
 
 void hpwm_set(int pin, int freq_hz, int duty_per_mille) {
+    // Parameter validation
+    if (freq_hz <= 0) return;
+    if (duty_per_mille < 0) duty_per_mille = 0;
+    if (duty_per_mille > 1000) duty_per_mille = 1000;
+
 #ifdef RPI_HW_PWM_PLATFORM_HOST
     printf("MOCK: HW PWM set on Pin %d to %d Hz, Duty %d/1000\n", pin, freq_hz, duty_per_mille);
 #else
