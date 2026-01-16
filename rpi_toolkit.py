@@ -10,6 +10,25 @@ if not os.path.exists(lib_path):
 
 _lib = ctypes.CDLL(lib_path)
 
+# Public API - controls what 'from rpi_toolkit import *' exports
+__all__ = [
+    # Constants
+    'INPUT', 'OUTPUT', 'LOW', 'HIGH',
+    'ALT0', 'ALT1', 'ALT2', 'ALT3', 'ALT4', 'ALT5',
+    # Types
+    'SimpleTimer',
+    # GPIO functions
+    'gpio_init', 'gpio_cleanup', 'pin_mode', 'gpio_set_function',
+    'digital_write', 'digital_read',
+    # Timer functions
+    'timer_set', 'timer_expired', 'timer_tick',
+    'millis', 'micros', 'delay_ms', 'delay_us',
+    # Software PWM functions
+    'pwm_init', 'pwm_init_freq', 'pwm_write', 'pwm_stop',
+    # Hardware PWM functions
+    'hpwm_init', 'hpwm_set', 'hpwm_stop',
+]
+
 # Constants
 INPUT = 0
 OUTPUT = 1
@@ -75,6 +94,10 @@ _lib.millis.restype = ctypes.c_uint64
 _lib.micros.argtypes = []
 _lib.micros.restype = ctypes.c_uint64
 
+# void delay_ms(uint64_t ms);
+_lib.delay_ms.argtypes = [ctypes.c_uint64]
+_lib.delay_ms.restype = None
+
 # void delay_us(uint64_t us);
 _lib.delay_us.argtypes = [ctypes.c_uint64]
 _lib.delay_us.restype = None
@@ -82,6 +105,10 @@ _lib.delay_us.restype = None
 # int pwm_init(int pin);
 _lib.pwm_init.argtypes = [ctypes.c_int]
 _lib.pwm_init.restype = ctypes.c_int
+
+# int pwm_init_freq(int pin, int freq_hz);
+_lib.pwm_init_freq.argtypes = [ctypes.c_int, ctypes.c_int]
+_lib.pwm_init_freq.restype = ctypes.c_int
 
 # void pwm_write(int pin, int duty);
 _lib.pwm_write.argtypes = [ctypes.c_int, ctypes.c_int]
@@ -139,11 +166,17 @@ def millis():
 def micros():
     return _lib.micros()
 
+def delay_ms(ms):
+    _lib.delay_ms(ms)
+
 def delay_us(us):
     _lib.delay_us(us)
 
 def pwm_init(pin):
     return _lib.pwm_init(pin)
+
+def pwm_init_freq(pin, freq_hz):
+    return _lib.pwm_init_freq(pin, freq_hz)
 
 def pwm_write(pin, duty):
     _lib.pwm_write(pin, duty)
