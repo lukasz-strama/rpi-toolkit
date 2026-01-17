@@ -1,45 +1,32 @@
 # rpi-toolkit
 
-**rpi-toolkit** is a collection of portable, single-header C libraries designed for embedded systems on the Raspberry Pi 4B. 
-It includes a Python wrapper for scripting.
+Header-only C libraries for low-latency GPIO control on Raspberry Pi 4B, with Python bindings.
 
 ## Modules
 
-| File | Description | Features |
-| :--- | :--- | :--- |
-| **`rpi_gpio.h`** | Hardware Abstraction Layer | Direct register access (MMIO), auto-mocking on PC, no root required (`/dev/gpiomem`). |
-| **`simple_timer.h`** | Timing & Delays | `CLOCK_MONOTONIC` based, drift-free periodic execution, plus microsecond precision for sensors. |
-| **`rpi_pwm.h`** | Software PWM | Multi-threaded PWM generation on any GPIO pin. Replaces `softPwm` from WiringPi. |
-| **`rpi_hw_pwm.h`** | Hardware PWM | Jitter-free DMA-based PWM using `/dev/mem`. Requires root (`sudo`). |
-| **`rpi_toolkit.py`**| Python Wrapper | `ctypes` binding to use all above C libraries directly in Python. |
+| Module | Description |
+|:-------|:------------|
+| `rpi_gpio.h` | Direct memory-mapped I/O (MMIO) via `/dev/gpiomem` |
+| `simple_timer.h` | `CLOCK_MONOTONIC`-based timing with µs precision |
+| `rpi_pwm.h` | Multi-threaded software PWM on any GPIO pin |
+| `rpi_hw_pwm.h` | DMA-based hardware PWM (requires root) |
+| `rpi_realtime.h` | Optional jitter reduction (SCHED_FIFO, CPU affinity) |
+| `rpi_toolkit.py` | ctypes wrapper for Python integration |
 
----
+## Performance
 
-## Performance Benchmarks
+GPIO toggle benchmark (10,000 iterations, Raspberry Pi 4B):
 
-Comparison of `rpi-toolkit` against standard Raspberry Pi GPIO methods. 
-Tests performed on Raspberry Pi 4B, toggling a GPIO pin 10,000 times.
+| Method | Frequency | Latency Factor |
+|:-------|----------:|---------------:|
+| rpi-toolkit (C) | 39.2 MHz | 1× (baseline) |
+| rpi-toolkit (Python) | 140 kHz | 279× |
+| lgpio (C) | 525 kHz | 74× |
+| gpiozero (Python) | 37 kHz | 1055× |
 
-| Method | Language | Library | Frequency | Speedup Factor |
-| :--- | :--- | :--- | :--- | :--- |
-| **rpi-toolkit** | **C** | **Direct MMIO** | **39,215,686 Hz (~39 MHz)** | **1x (Baseline)** |
-| rpi-toolkit | Python | ctypes wrapper | 140,381 Hz (~140 kHz) | 279x slower |
-| lgpio | C | Linux Kernel API | 525,292 Hz (~0.5 MHz) | 74x slower |
-| gpiozero | Python | Standard Lib | 37,167 Hz (~37 kHz) | 1,055x slower |
-| pinctrl | Bash | Sysfs/Pinctrl | 164 Hz | 238,766x slower |
-
-**Conclusion:** `rpi-toolkit` in native C is approximately **74x faster** than the standard `lgpio` C library because it bypasses the Linux Kernel overhead using Direct Memory Access (DMA/MMIO).
-Even the Python wrapper is **~3.8x faster** than the standard `gpiozero` library.
-
-## Quick Start
-
-This example demonstrates multitasking: blinking an LED, reading sensors, and pulsing a PWM pin simultaneously.
+## Usage
 
 ```c
-#include <stdio.h>
-#include <unistd.h>
-
-// 1. Implement the libraries (only in ONE .c file)
 #define RPI_GPIO_IMPLEMENTATION
 #include "rpi_gpio.h"
 
@@ -49,27 +36,13 @@ This example demonstrates multitasking: blinking an LED, reading sensors, and pu
 #define RPI_PWM_IMPLEMENTATION
 #include "rpi_pwm.h"
 
-// Define this if you need Hardware PWM (Requires sudo)
-// #define RPI_HW_PWM_IMPLEMENTATION
-// #include "rpi_hw_pwm.h"
-
-int main() {
-    // Setup
+int main(void) {
     gpio_init();
-    pwm_init(18); // Start Software PWM on Pin 18
+    pwm_init(18);
 
-    printf("System started. Press Ctrl+C to exit.\n");
-
-    while (1) {
-        // Fade LED logic using PWM
-        for (int i = 0; i <= 100; i += 5) {
-            pwm_write(18, i);
-            delay_us(50000); // Wait 50ms (using busy-wait for precision)
-        }
-        for (int i = 100; i >= 0; i -= 5) {
-            pwm_write(18, i);
-            delay_us(50000);
-        }
+    for (int duty = 0; duty <= 100; duty += 5) {
+        pwm_write(18, duty);
+        delay_us(50000);
     }
 
     pwm_stop(18);
@@ -78,121 +51,159 @@ int main() {
 }
 ```
 
-## Compilation
+## Build
 
-Since `rpi_pwm.h` uses threads, you must link with the `pthread` library.
-
-### 1. On x86_64 (Simulation Mode):
-
-```Bash
+```bash
 gcc main.c -o app -pthread
 ./app
 ```
 
-Output:
+Python (shared library):
 
-```Plaintext
-MOCK: gpio_init() called...
-MOCK: PWM initialized on Pin 18
-MOCK: PWM on Pin 18 updated to 5%
-...
-```
-
-2. On Raspberry Pi (Hardware Mode):
-
-```Bash
-gcc main.c -o app -pthread
-./app
-```
-
-(Note: If using `rpi_hw_pwm.h`, run with `sudo ./app`)
-
-## Python Support
-
-You can use these libraries in Python thanks to the included ctypes wrapper. This gives you the syntax of Python with the performance of C.
-
-### 1. Build the Shared Library
-
-```Bash
+```bash
 make
-```
-
-### 2. Run the Python Script
-
-```Bash
 python3 main.py
 ```
 
-(Note: If using `hpwm_*` functions, run `sudo python3 main.py`)
+Hardware PWM requires `sudo`.
 
-## API Reference
+## API
 
-simple_timer.h
+### rpi_gpio.h
 
-```
-timer_set(&t, ms): Start/Reset a timer.
-
-timer_tick(&t): Returns true if expired and automatically advances the timer (drift-free).
-
-micros(): Returns uptime in microseconds.
-
-delay_us(us): precise delay (busy-wait) for timing-critical protocols.
-```
-
-rpi_pwm.h (Software PWM)
-
-```
-pwm_init(pin): Starts a background thread for PWM on selected pin.
-
-pwm_write(pin, duty): Sets duty cycle (0-100).
-
-pwm_stop(pin): Stops the thread and cleans up.
+```c
+int  gpio_init(void);                         // Returns 0 on success, -1 on error
+void gpio_cleanup(void);
+void pin_mode(int pin, int mode);             // INPUT=0, OUTPUT=1
+void gpio_set_function(int pin, int func);    // ALT0-ALT5 for peripheral modes
+void digital_write(int pin, int value);       // LOW=0, HIGH=1
+int  digital_read(int pin);
 ```
 
-rpi_hw_pwm.h (Hardware PWM)
+### simple_timer.h
 
-```
-hpwm_init(): Initializes DMA/Clock for jitter-free PWM.
-
-hpwm_set(pin, freq, duty_permille): Sets frequency (Hz) and duty (0-1000).
-
-hpwm_stop(): Disables controller.
-```
-
-rpi_gpio.h
-
-```
-pin_mode(pin, mode), digital_write(pin, val), digital_read(pin).
+```c
+void     timer_set(simple_timer_t *t, uint64_t interval_ms);
+bool     timer_expired(simple_timer_t *t);    // Check only, does not reset
+bool     timer_tick(simple_timer_t *t);       // Check and auto-advance (drift-compensated)
+uint64_t millis(void);
+uint64_t micros(void);
+void     delay_ms(uint64_t ms);               // Busy-wait
+void     delay_us(uint64_t us);               // Busy-wait
 ```
 
-## GPIO Pinout Reference (BCM vs Physical)
+### rpi_pwm.h
 
-| BCM (Code) | Role        | Phy |   | Phy | Role        | BCM (Code) |
-| :---:      | :---        | :---: |---| :---: | :---        | :---:      |
-| **-** | **3.3V** |  1  | . |  2  | **5V** | **-** |
-| **2** | SDA (I2C)   |  3  | . |  4  | **5V** | **-** |
-| **3** | SCL (I2C)   |  5  | . |  6  | **GND** | **-** |
-| **4** | GPCLK0      |  7  | . |  8  | TXD (UART)  | **14** |
-| **-** | **GND** |  9  | . | 10  | RXD (UART)  | **15** |
-| **17** | GPIO        | 11  | . | 12  | PWM0 / GPIO | **18** |
-| **27** | GPIO        | 13  | . | 14  | **GND** | **-** |
-| **22** | GPIO        | 15  | . | 16  | GPIO        | **23** |
-| **-** | **3.3V** | 17  | . | 18  | GPIO        | **24** |
-| **10** | MOSI (SPI)  | 19  | . | 20  | **GND** | **-** |
-| **9** | MISO (SPI)  | 21  | . | 22  | GPIO        | **25** |
-| **11** | SCLK (SPI)  | 23  | . | 24  | CE0 (SPI)   | **8** |
-| **-** | **GND** | 25  | . | 26  | CE1 (SPI)   | **7** |
-| **0** | ID_SD       | 27  | . | 28  | ID_SC       | **1** |
-| **5** | GPIO        | 29  | . | 30  | **GND** | **-** |
-| **6** | GPIO        | 31  | . | 32  | PWM0 / GPIO | **12** |
-| **13** | PWM1 / GPIO | 33  | . | 34  | **GND** | **-** |
-| **19** | PWM1 / MISO | 35  | . | 36  | GPIO        | **16** |
-| **26** | GPIO        | 37  | . | 38  | MOSI / GPIO | **20** |
-| **-** | **GND** | 39  | . | 40  | SCLK / GPIO | **21** |
+```c
+int  pwm_init(int pin);                       // 100 Hz default
+int  pwm_init_freq(int pin, int freq_hz);     // Custom frequency
+void pwm_write(int pin, int duty);            // 0-100%
+void pwm_stop(int pin);
+```
 
-* **BCM:** The number you use in `pin_mode(X, ...)` and `digital_write(X, ...)`.
-* **Phy:** The physical pin number on the board header (1-40).
+### rpi_hw_pwm.h
+
+```c
+int  hpwm_init(void);                                   // Returns 0 on success
+void hpwm_set(int pin, int freq_hz, int duty_permille); // Duty in ‰ (0-1000)
+void hpwm_stop(void);
+```
+
+Supported pins: 12, 13 (ALT0), 18, 19 (ALT5).
+
+### rpi_realtime.h (Optional Jitter Reduction)
+
+```c
+int set_realtime_priority(void);  // Set SCHED_FIFO max priority (requires root)
+int pin_to_core(int core_id);     // Pin thread to CPU core (0-3 on RPi 4)
+int get_cpu_count(void);          // Get number of CPU cores
+```
+
+## Minimizing Jitter (Optional)
+
+For timing-critical applications, you can reduce jitter using three techniques:
+
+### 1. Real-Time Priority (SCHED_FIFO)
+
+Switch to real-time scheduling to prevent other processes from interrupting your code:
+
+```c
+#define RPI_REALTIME_IMPLEMENTATION
+#include "rpi_realtime.h"
+
+int main() {
+    set_realtime_priority();  // Requires sudo
+    // ... timing-critical code ...
+}
+```
+
+Python:
+```python
+from rpi_toolkit import set_realtime_priority
+set_realtime_priority()  # Requires sudo
+```
+
+### 2. CPU Pinning (Core Affinity)
+
+Prevent the scheduler from migrating your thread between cores:
+
+```c
+pin_to_core(3);  // Pin to core 3
+```
+
+Python:
+```python
+from rpi_toolkit import pin_to_core
+pin_to_core(3)
+```
+
+### 3. Core Isolation (Kernel-Level)
+
+For maximum effect, isolate a CPU core so Linux doesn't run **any** other processes on it:
+
+1. Edit `/boot/cmdline.txt` (or `/boot/firmware/cmdline.txt` on newer OS)
+2. Add `isolcpus=3` to the end of the existing line (do NOT create a new line)
+3. Reboot
+
+After reboot, core 3 is reserved. Combine with `pin_to_core(3)` for best results:
+
+```c
+int main() {
+    set_realtime_priority();  // SCHED_FIFO
+    pin_to_core(3);           // Use isolated core
+    // Your code now runs with minimal jitter
+}
+```
+
+> **Note**: To undo core isolation, remove `isolcpus=3` from cmdline.txt and reboot.
+
+## BCM Pinout
+
+| BCM | Phy | Function | | Phy | BCM | Function |
+|:---:|:---:|:---------|---|:---:|:---:|:---------|
+| — | 1 | 3.3V | | 2 | — | 5V |
+| 2 | 3 | SDA | | 4 | — | 5V |
+| 3 | 5 | SCL | | 6 | — | GND |
+| 4 | 7 | GPCLK0 | | 8 | 14 | TXD |
+| — | 9 | GND | | 10 | 15 | RXD |
+| 17 | 11 | GPIO | | 12 | 18 | PWM0 |
+| 27 | 13 | GPIO | | 14 | — | GND |
+| 22 | 15 | GPIO | | 16 | 23 | GPIO |
+| — | 17 | 3.3V | | 18 | 24 | GPIO |
+| 10 | 19 | MOSI | | 20 | — | GND |
+| 9 | 21 | MISO | | 22 | 25 | GPIO |
+| 11 | 23 | SCLK | | 24 | 8 | CE0 |
+| — | 25 | GND | | 26 | 7 | CE1 |
+| 0 | 27 | ID_SD | | 28 | 1 | ID_SC |
+| 5 | 29 | GPIO | | 30 | — | GND |
+| 6 | 31 | GPIO | | 32 | 12 | PWM0 |
+| 13 | 33 | PWM1 | | 34 | — | GND |
+| 19 | 35 | PWM1 | | 36 | 16 | GPIO |
+| 26 | 37 | GPIO | | 38 | 20 | GPIO |
+| — | 39 | GND | | 40 | 21 | GPIO |
+
+BCM = Broadcom pin numbering. Phy = physical header position (1-40).
 
 ## License
 
-MIT License - Feel free to use this in your university projects.
+MIT
