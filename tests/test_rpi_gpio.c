@@ -430,8 +430,8 @@ int main(void) {
     RUN_TEST(test_constants_pin_range);
     
     // Stress tests
-    RUN_TEST(test_stress_full_gpio_cycle);
     RUN_TEST(test_stress_many_operations);
+    RUN_TEST(test_stress_full_gpio_cycle);
     
     return UNITY_END();
 }

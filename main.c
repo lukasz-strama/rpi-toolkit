@@ -9,23 +9,40 @@
 #include <unistd.h>
 #include <stdio.h>
 
+/* ---------------------------------------------------------------------------
+ * Configuration Constants
+ * ---------------------------------------------------------------------------*/
+#define LED_PIN         21
+#define SW_PWM_PIN      18
+#define HW_PWM_PIN      12
+
+#define BLINK_INTERVAL_MS       500
+#define SENSOR_POLL_INTERVAL_MS 100
+#define PWM_UPDATE_INTERVAL_MS  1000
+#define DEMO_DURATION_MS        5000
+
+#define SERVO_FREQ_HZ   50
+#define SERVO_NEUTRAL   75   /* 7.5% duty in per-mille */
+#define PWM_STEP        25
+
+#define LOOP_SLEEP_US   1000
+
 int main() {
+    /* -----------------------------------------------------------------------
+     * Initialization
+     * -----------------------------------------------------------------------*/
     if (gpio_init() != 0) {
         fprintf(stderr, "Failed to initialize GPIO\n");
         return 1;
     }
 
-    int led_pin = 21;
-    int pwm_pin = 18;
-    int hw_pwm_pin = 12;
-
-    printf("Starting Non-Blocking GPIO Blink on Pin %d...\n", led_pin);
-    printf("Starting Software PWM on Pin %d...\n", pwm_pin);
-    printf("Starting Hardware PWM on Pin %d...\n", hw_pwm_pin);
+    printf("Starting Non-Blocking GPIO Blink on Pin %d...\n", LED_PIN);
+    printf("Starting Software PWM on Pin %d...\n", SW_PWM_PIN);
+    printf("Starting Hardware PWM on Pin %d...\n", HW_PWM_PIN);
     
-    pin_mode(led_pin, OUTPUT);
+    pin_mode(LED_PIN, OUTPUT);
     
-    if (pwm_init(pwm_pin) != 0) {
+    if (pwm_init(SW_PWM_PIN) != 0) {
         fprintf(stderr, "Failed to init PWM\n");
     }
 
@@ -33,51 +50,55 @@ int main() {
         fprintf(stderr, "Failed to init HW PWM\n");
     }
 
-    // Set HW PWM to 50Hz (Servo), 7.5% duty (Neutral)
-    hpwm_set(hw_pwm_pin, 50, 75);
+    /* Set HW PWM to 50Hz (Servo), 7.5% duty (Neutral) */
+    hpwm_set(HW_PWM_PIN, SERVO_FREQ_HZ, SERVO_NEUTRAL);
 
     simple_timer_t blink_timer;
     simple_timer_t sensor_timer;
     simple_timer_t pwm_timer;
 
-    timer_set(&blink_timer, 500);
-    timer_set(&sensor_timer, 100);
-    timer_set(&pwm_timer, 1000); // Change PWM every second
+    timer_set(&blink_timer, BLINK_INTERVAL_MS);
+    timer_set(&sensor_timer, SENSOR_POLL_INTERVAL_MS);
+    timer_set(&pwm_timer, PWM_UPDATE_INTERVAL_MS);
 
     int led_state = LOW;
     int pwm_duty = 0;
-    int pwm_step = 25;
 
-    // Run for 5 seconds
+    /* -----------------------------------------------------------------------
+     * Main Loop
+     * -----------------------------------------------------------------------*/
     uint64_t start_time = millis();
-    while (millis() - start_time < 5000) {
+    while (millis() - start_time < DEMO_DURATION_MS) {
         
         if (timer_tick(&blink_timer)) {
             led_state = !led_state;
-            digital_write(led_pin, led_state);
+            digital_write(LED_PIN, led_state);
             printf("Blink! LED is %s\n", led_state ? "HIGH" : "LOW");
         }
 
         if (timer_tick(&sensor_timer)) {
-            // printf("Checking sensors...\n"); // Commented out to reduce spam
+            /* Sensor polling placeholder */
         }
 
         if (timer_tick(&pwm_timer)) {
-            pwm_duty += pwm_step;
+            pwm_duty += PWM_STEP;
             if (pwm_duty > 100) {
                 pwm_duty = 0;
             }
-            pwm_write(pwm_pin, pwm_duty);
+            pwm_write(SW_PWM_PIN, pwm_duty);
             
-            // Update HW PWM as well (just for demo)
-            hpwm_set(hw_pwm_pin, 50, pwm_duty * 10); // Scale 0-100 to 0-1000
+            /* Scale 0-100 to 0-1000 for HW PWM */
+            hpwm_set(HW_PWM_PIN, SERVO_FREQ_HZ, pwm_duty * 10);
         }
 
-        // minimal sleep to prevent CPU hogging
-        usleep(1000); 
+        /* Minimal sleep to prevent CPU hogging */
+        usleep(LOOP_SLEEP_US); 
     }
 
-    pwm_stop(pwm_pin);
+    /* -----------------------------------------------------------------------
+     * Cleanup
+     * -----------------------------------------------------------------------*/
+    pwm_stop(SW_PWM_PIN);
     hpwm_stop();
     gpio_cleanup();
     printf("Done.\n");
